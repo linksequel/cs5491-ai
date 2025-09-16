@@ -1,4 +1,5 @@
 # 人工智能
+
 ## 机器学习 
 数据中总结规律
 ### 深度学习
@@ -8,3 +9,4 @@
 
 # References
 - https://github.com/bbaaii/DreamDiffusion
+- https://aima.cs.berkeley.edu/
