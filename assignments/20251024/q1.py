@@ -61,16 +61,18 @@ class MCTSNode:
 class MCTS:
     """Monte Carlo Tree Search Algorithm"""
 
-    def __init__(self, C=1.0, n_iterations=10):
+    def __init__(self, C=1.0, n_iterations=10, show_process=True):
         """
         Initialize MCTS
 
         Args:
             C: Exploration parameter for UCB formula
             n_iterations: Number of iterations to run
+            show_process: Whether to visualize each iteration (True) or only the last one (False)
         """
         self.C = C
         self.n_iterations = n_iterations
+        self.show_process = show_process
         self.root = None
         self.iteration_history = []
 
@@ -216,8 +218,13 @@ class MCTS:
         snapshot = {}
         snapshot['Root'] = {'visits': self.root.visits, 'value': self.root.value}
 
+        # Track unexpanded children info
+        unexpanded_info = {}
+
         for child in self.root.children:
             snapshot[child.name] = {'visits': child.visits, 'value': child.value, 'is_expanded': child.is_expanded}
+
+            # Add all children (both expanded and unexpanded)
             for grandchild in child.children:
                 snapshot[grandchild.name] = {
                     'visits': grandchild.visits,
@@ -225,6 +232,20 @@ class MCTS:
                     'utility': grandchild.utility
                 }
 
+            # Add unexpanded children info
+            if child.name in self._unexpanded_children:
+                for unexpanded_child in self._unexpanded_children[child.name]:
+                    snapshot[unexpanded_child.name] = {
+                        'visits': 0,
+                        'value': 0,
+                        'utility': unexpanded_child.utility,
+                        'unexpanded': True
+                    }
+                    if child.name not in unexpanded_info:
+                        unexpanded_info[child.name] = []
+                    unexpanded_info[child.name].append(unexpanded_child.name)
+
+        snapshot['_unexpanded_info'] = unexpanded_info
         return snapshot
 
     def run_iteration(self, iteration_num):
@@ -287,11 +308,31 @@ class MCTS:
             for grandchild in child.children:
                 print(f"    {grandchild}")
 
+    def visualize_initial_state(self):
+        """Visualize the initial state of the tree"""
+        fig, ax = plt.subplots(1, 1, figsize=(12, 9))
+        fig.suptitle('MCTS Initial State', fontsize=16, fontweight='bold')
+
+        # Get current snapshot
+        snapshot = self._create_tree_snapshot()
+        self._draw_tree(ax, snapshot=snapshot)
+        ax.set_title('Initial Tree State Before Any Iteration', fontsize=12, fontweight='bold')
+
+        plt.tight_layout()
+        plt.savefig('pics/mcts_initial_state.png', dpi=150, bbox_inches='tight')
+        plt.show()
+
+        print(f"Initial state visualization saved as pics/mcts_initial_state.png")
+
     def run(self):
         """Run MCTS for n iterations"""
         print(f"Starting MCTS with C={self.C}, n_iterations={self.n_iterations}")
         print(f"Initial tree state:")
         self.print_tree()
+
+        # Visualize initial state
+        print(f"\nVisualizing initial state...")
+        self.visualize_initial_state()
 
         for i in range(self.n_iterations):
             self.run_iteration(i)
@@ -369,7 +410,7 @@ class MCTS:
         ax4.set_title('Step 4: Backpropagation\n(Update values along path)', fontsize=12, fontweight='bold')
 
         plt.tight_layout()
-        plt.savefig(f'mcts_iteration_{info["iteration"]}.png', dpi=150, bbox_inches='tight')
+        plt.savefig(f'pics/mcts_iteration_{info["iteration"]}.png', dpi=150, bbox_inches='tight')
         plt.show()
 
         print(f"Visualization saved as mcts_iteration_{info['iteration']}.png")
@@ -396,7 +437,7 @@ class MCTS:
             'C1': (6.5, 2), 'C2': (7.5, 2), 'C3': (8.5, 2)
         }
 
-        # Draw edges
+        # Draw edges (solid lines for expanded, dashed for unexpanded)
         edges = [
             ('Root', 'A'), ('Root', 'B'), ('Root', 'C'),
             ('B', 'B1'), ('B', 'B2'), ('B', 'B3'),
@@ -413,6 +454,14 @@ class MCTS:
         if 'C3' in snapshot:
             edges.append(('C', 'C3'))
 
+        # Get unexpanded edges info
+        unexpanded_info = snapshot.get('_unexpanded_info', {})
+        unexpanded_edges = []
+        for parent, children_list in unexpanded_info.items():
+            for child in children_list:
+                unexpanded_edges.append((parent, child))
+
+        # Draw solid edges (expanded nodes)
         for parent, child in edges:
             if parent in positions and child in positions:
                 # Only draw if child exists in snapshot
@@ -429,6 +478,18 @@ class MCTS:
                     ax.plot([x1, x2], [y1, y2], 'g-', linewidth=3, zorder=1)
                 else:
                     ax.plot([x1, x2], [y1, y2], 'k-', linewidth=1, zorder=1)
+
+        # Draw dashed edges (unexpanded nodes)
+        for parent, child in unexpanded_edges:
+            if parent in positions and child in positions:
+                if child not in snapshot:
+                    continue
+
+                x1, y1 = positions[parent]
+                x2, y2 = positions[child]
+
+                # Draw dashed line for unexpanded children
+                ax.plot([x1, x2], [y1, y2], 'k--', linewidth=1, alpha=0.5, zorder=1)
 
         # Draw nodes using snapshot data
         for name, pos in positions.items():
@@ -484,11 +545,12 @@ class MCTS:
 def main():
     """Main function to run MCTS"""
     # Initialize parameters
-    C = 1.0  # Exploration parameter
-    n_iterations = 10  # Number of iterations
+    C = 1.5  # Exploration parameter
+    n_iterations = 1  # Number of iterations
+    show_process = False  # Show each iteration (True) or only the last one (False)
 
     # Create MCTS instance
-    mcts = MCTS(C=C, n_iterations=n_iterations)
+    mcts = MCTS(C=C, n_iterations=n_iterations, show_process=show_process)
 
     # Initialize tree with data from HW_1
     mcts.initialize_tree()
@@ -496,13 +558,23 @@ def main():
     # Run MCTS
     mcts.run()
 
-    # Visualize each iteration
+    # Visualize iterations based on show_process flag
     print(f"\n{'='*60}")
-    print("Generating visualizations for each iteration...")
+    if mcts.show_process:
+        print("Generating visualizations for each iteration...")
+    else:
+        print("Generating visualization for the last iteration only...")
     print(f"{'='*60}")
 
-    for i in range(min(n_iterations, len(mcts.iteration_history))):
-        mcts.visualize_iteration(i)
+    if mcts.show_process:
+        # Show all iterations
+        for i in range(min(n_iterations, len(mcts.iteration_history))):
+            mcts.visualize_iteration(i)
+    else:
+        # Show only the last iteration
+        if len(mcts.iteration_history) > 0:
+            last_iteration = len(mcts.iteration_history) - 1
+            mcts.visualize_iteration(last_iteration)
 
     print("\nDone! Check the generated PNG files for visualizations.")
 
