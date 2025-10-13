@@ -29,26 +29,3 @@ Where | 其中:
   Question: Can the leaf node with the largest utility (utility=9, which is node A2) be found by increasing MCTS iterations?
 
   Answer: Yes! The optimal leaf A2 (utility=9) can be found, but it requires a sufficiently high exploration parameter C.
-
-## Key Findings
-1. Minimum C threshold: C ≥ 6.0
-   - C < 6.0: Failed to find optimal leaf even with 100+ iterations
-   - C = 6.0: Found at iteration 33
-   - C ≥ 15.0: Found in just 3 iterations (fastest)
-2. Complete Results Table:
-   - C = 6.0 → n = 33 iterations
-   - C = 7.0 → n = 15 iterations
-   - C = 8.0 → n = 14 iterations
-   - C = 9.0 → n = 10 iterations
-   - C = 10.0 → n = 8 iterations
-   - C = 15.0+ → n = 3 iterations (optimal)
-3. Why This Happens:
-   - Node A (parent of A2) starts with low value (1.0) and only 1 visit
-   - After expanding A1 (utility=1), A's average stays low
-   - Nodes B (5.25 avg) and C (3.5 avg) look more promising
-   - The UCB formula naturally favors higher-value branches
-   - Higher C values increase the exploration bonus, forcing the algorithm to revisit "unpromising" branches like A
-   - This eventually leads to discovering A2 with its high utility of 9
-4. Visualizations Generated:
-   - All successful combinations have been visualized in assignments/20251024/pics/
-   - The visualization shows 4 stages: Initial state, Mid-iteration, When A2 is found, Final state
