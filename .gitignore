@@ -2,3 +2,5 @@
 *.pth
 data/
 .idea/
+.claude/
+*.png
