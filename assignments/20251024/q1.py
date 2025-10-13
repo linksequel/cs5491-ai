@@ -17,6 +17,7 @@ import matplotlib.patches as patches
 from collections import defaultdict
 import math
 import copy
+import os
 
 
 class MCTSNode:
@@ -136,8 +137,7 @@ class MCTS:
         leaf_3c = MCTSNode("C3", parent=node_3, utility=8)
 
         node_3.add_child(leaf_3a)
-        node_3.add_child(leaf_3b)
-        node_3.add_child(leaf_3c)
+        # C2 and C3 are NOT added yet - they are unexpanded
 
         # Store unexpanded children for later expansion
         self._unexpanded_children = {
@@ -319,6 +319,9 @@ class MCTS:
         ax.set_title('Initial Tree State Before Any Iteration', fontsize=12, fontweight='bold')
 
         plt.tight_layout()
+
+        # Create pics directory if it doesn't exist
+        os.makedirs('pics', exist_ok=True)
         plt.savefig('pics/mcts_initial_state.png', dpi=150, bbox_inches='tight')
         plt.show()
 
@@ -437,29 +440,32 @@ class MCTS:
             'C1': (6.5, 2), 'C2': (7.5, 2), 'C3': (8.5, 2)
         }
 
-        # Draw edges (solid lines for expanded, dashed for unexpanded)
+        # Get unexpanded edges info first
+        unexpanded_info = snapshot.get('_unexpanded_info', {})
+        unexpanded_edges = []
+        for parent, children_list in unexpanded_info.items():
+            for child in children_list:
+                unexpanded_edges.append((parent, child))
+
+        # Draw edges (solid lines for children already added to parent.children)
+        # Start with edges that are always solid (already in children list)
         edges = [
             ('Root', 'A'), ('Root', 'B'), ('Root', 'C'),
             ('B', 'B1'), ('B', 'B2'), ('B', 'B3'),
             ('C', 'C1')
         ]
 
-        # Add edges for expanded nodes based on snapshot
-        if 'A' in snapshot and snapshot['A'].get('is_expanded', False):
-            edges.extend([('A', 'A1'), ('A', 'A2'), ('A', 'A3')])
+        # For A's children: add only those NOT in unexpanded_edges
+        # (i.e., already moved from _unexpanded_children to children list)
+        for child_name in ['A1', 'A2', 'A3']:
+            if child_name in snapshot and ('A', child_name) not in unexpanded_edges:
+                edges.append(('A', child_name))
 
-        # Check if C has more children in snapshot
-        if 'C2' in snapshot:
+        # For C's children: C2 and C3 are solid only if not in unexpanded list
+        if 'C2' in snapshot and ('C', 'C2') not in unexpanded_edges:
             edges.append(('C', 'C2'))
-        if 'C3' in snapshot:
+        if 'C3' in snapshot and ('C', 'C3') not in unexpanded_edges:
             edges.append(('C', 'C3'))
-
-        # Get unexpanded edges info
-        unexpanded_info = snapshot.get('_unexpanded_info', {})
-        unexpanded_edges = []
-        for parent, children_list in unexpanded_info.items():
-            for child in children_list:
-                unexpanded_edges.append((parent, child))
 
         # Draw solid edges (expanded nodes)
         for parent, child in edges:
@@ -545,9 +551,9 @@ class MCTS:
 def main():
     """Main function to run MCTS"""
     # Initialize parameters
-    C = 1.5  # Exploration parameter
-    n_iterations = 1  # Number of iterations
-    show_process = False  # Show each iteration (True) or only the last one (False)
+    C = 6  # Exploration parameter
+    n_iterations = 3  # Number of iterations
+    show_process = True  # Show each iteration (True) or only the last one (False)
 
     # Create MCTS instance
     mcts = MCTS(C=C, n_iterations=n_iterations, show_process=show_process)
