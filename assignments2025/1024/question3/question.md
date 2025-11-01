@@ -4,7 +4,7 @@ Consider the Bayesian network given in the figure below. The prerequisite here i
 Two Bayesian network diagrams are shown side by side:
 
 - Left diagram: Shows nodes X₁, X₂, X₃, X₄, X₅ with directed edges from X₁→X₃, X₁→X₂, X₃→X₂, X₂→X₄, X₂→X₅
-- Right diagram: Shows nodes X₁, X₂, X₃, X₄, X₅ with directed edges from X₁→X₃, X₁→X₂, X₃→X₂, X₂→X₄, X₂→X₅, X₅→X₆]
+- Right diagram: Shows nodes X₁, X₂, X₃, X₄, X₅ with directed edges from X₁→X₃, X₁→X₂, X₃→X₂, X₂→X₄, X₂→X₅, X₆->X₅]
 
 ## TODO
 Show the variable elimination process for the following ones.
