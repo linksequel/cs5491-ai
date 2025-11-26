@@ -17,7 +17,7 @@ import seaborn as sns
 from sklearn import preprocessing
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler, StandardScaler
 from sklearn.decomposition import PCA
-from sklearn.model_selection import cross_val_score, GridSearchCV
+from sklearn.model_selection import cross_val_score, GridSearchCV, GroupKFold
 from sklearn.metrics import (
     confusion_matrix, 
     accuracy_score, 
@@ -87,9 +87,18 @@ def split_train_test(data):
     
     Since features_3_sec.csv has 10 segments per original audio file,
     this splits by the original audio file number.
+    
+    Also returns groups for GroupKFold cross-validation.
     """
     data = data.copy()
     data['file_number'] = data['filename'].apply(extract_file_number)
+    
+    # Extract genre from filename for unique group ID
+    # e.g., 'blues.00045.3.wav' -> 'blues_45'
+    data['genre'] = data['filename'].apply(lambda x: x.split('.')[0])
+    # Create unique group ID: genre_index * 100 + file_number
+    genre_mapping = {g: i for i, g in enumerate(sorted(data['genre'].unique()))}
+    data['group_id'] = data['genre'].map(genre_mapping) * 100 + data['file_number']
     
     # Train: files 0-79, Test: files 80-99
     train_mask = data['file_number'] < 80
@@ -98,15 +107,19 @@ def split_train_test(data):
     train_data = data[train_mask].copy()
     test_data = data[test_mask].copy()
     
-    # Drop the helper column
-    train_data = train_data.drop(columns=['file_number'])
-    test_data = test_data.drop(columns=['file_number'])
+    # Extract groups for CV (before dropping columns)
+    train_groups = train_data['group_id'].values
+    
+    # Drop the helper columns
+    train_data = train_data.drop(columns=['file_number', 'genre', 'group_id'])
+    test_data = test_data.drop(columns=['file_number', 'genre', 'group_id'])
     
     print(f"Train set size: {len(train_data)} samples")
     print(f"Test set size: {len(test_data)} samples")
     print(f"Train genres distribution:\n{train_data['label'].value_counts()}")
+    print(f"Number of unique groups in train set: {len(np.unique(train_groups))}")
     
-    return train_data, test_data
+    return train_data, test_data, train_groups
 
 
 def prepare_features(train_data, test_data, scaler_type='standard'):
@@ -333,10 +346,31 @@ def generate_classification_report(y_test, y_pred, label_encoder):
     return report_df
 
 
-def run_cross_validation(X_train, y_train, best_model, model_name, cv=5):
-    """Run cross-validation on training set"""
+def run_cross_validation(X_train, y_train, best_model, model_name, groups=None, cv=5):
+    """
+    Run cross-validation on training set.
+    
+    If groups is provided, uses GroupKFold to ensure segments from the same 
+    audio file stay in the same fold (prevents data leakage).
+    """
     print(f"\nRunning {cv}-fold cross-validation on {model_name}...")
-    scores = cross_val_score(best_model, X_train, y_train, cv=cv, scoring='accuracy', n_jobs=-1)
+    
+    if groups is not None:
+        # Use GroupKFold to prevent data leakage
+        print("Using GroupKFold (segments from same song stay together)")
+        group_kfold = GroupKFold(n_splits=cv)
+        scores = cross_val_score(
+            best_model, X_train, y_train, 
+            cv=group_kfold, 
+            groups=groups,
+            scoring='accuracy', 
+            n_jobs=-1
+        )
+    else:
+        # Standard KFold (may have data leakage for audio segments)
+        print("Using standard KFold (WARNING: may have data leakage)")
+        scores = cross_val_score(best_model, X_train, y_train, cv=cv, scoring='accuracy', n_jobs=-1)
+    
     print(f"CV Scores: {scores}")
     print(f"CV Mean: {scores.mean():.4f} (+/- {scores.std()*2:.4f})")
     return scores
@@ -356,7 +390,7 @@ def main():
     print("\n[2/7] Splitting data (Train: files 0-79, Test: files 80-99)...")
     print("NOTE: This is the PROPER split without data leakage!")
     print("(Different 3-sec segments of same audio stay in same set)")
-    train_data, test_data = split_train_test(data)
+    train_data, test_data, train_groups = split_train_test(data)
     
     # Step 3: Prepare features
     print("\n[3/7] Preparing features (using StandardScaler)...")
@@ -385,11 +419,11 @@ def main():
     print(f"Test Accuracy: {best_accuracy:.4f} ({best_accuracy*100:.2f}%)")
     print(f"{'='*60}")
     
-    # Cross-validation on training set
+    # Cross-validation on training set using GroupKFold
     # Clone model for CV to avoid refitting issues
     from sklearn.base import clone
     cv_model = clone(best_model)
-    run_cross_validation(X_train, y_train, cv_model, best_model_name)
+    run_cross_validation(X_train, y_train, cv_model, best_model_name, groups=train_groups)
     
     # Step 7: Generate final reports and plots
     print("\n[7/7] Generating final reports and visualizations...")
