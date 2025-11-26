@@ -4,6 +4,7 @@ data/
 .idea/
 .claude/
 *.png
+*.jpg
 __pycache__/
 
 # Ignore everything inside HW2
