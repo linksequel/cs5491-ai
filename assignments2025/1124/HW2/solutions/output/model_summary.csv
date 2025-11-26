@@ -1,0 +1,12 @@
+Model,Accuracy
+MLP Neural Network,0.533
+Logistic Regression,0.5235
+XGBoost,0.517
+SVM (RBF),0.5085
+SVM (Linear),0.478
+Random Forest,0.4635
+SGD,0.4505
+KNN (k=5),0.44
+KNN (k=10),0.4385
+Naive Bayes,0.3515
+Decision Tree,0.344
