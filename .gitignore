@@ -5,4 +5,8 @@ data/
 .claude/
 *.png
 __pycache__/
-**/HW2
+
+# Ignore everything inside HW2
+**/HW2/*
+# But keep the solutions directory
+!**/HW2/solutions/
