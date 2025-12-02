@@ -17,3 +17,5 @@ https://lilianweng.github.io/
 https://huggingface.co/papers
 
 https://github.com/wangkai930418
+
+bagel
